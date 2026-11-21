@@ -1,6 +1,6 @@
 import { InteractionEvent, type WebAuthnRegistrationOptions } from '@logto/schemas';
 import { browserSupportsWebAuthn } from '@simplewebauthn/browser';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { validate } from 'superstruct';
 
@@ -12,8 +12,8 @@ import useErrorHandler from '@/hooks/use-error-handler';
 import useGlobalRedirectTo from '@/hooks/use-global-redirect-to';
 import usePasskeySignIn from '@/hooks/use-passkey-sign-in';
 import useSubmitInteractionErrorHandler from '@/hooks/use-submit-interaction-error-handler';
-import ErrorPage from '@/pages/ErrorPage';
 import Button from '@/shared/components/Button';
+import LoadingLayer from '@/shared/components/LoadingLayer';
 import { continueFlowStateGuard } from '@/types/guard';
 
 import styles from './index.module.scss';
@@ -44,8 +44,35 @@ const PasskeySetup = () => {
 
   const asyncSkipPasskeyBinding = useApi(skipPasskeyBinding);
 
+  // StarMoe: browsers without WebAuthn (e.g. in-app browsers such as QQ's) cannot create a passkey.
+  // Instead of a dead-end error page, skip the suggestion for this sign-in only and carry on.
+  const webAuthnSupported = browserSupportsWebAuthn();
+  const autoSkipStarted = useRef(false);
+
   useEffect(() => {
-    if (!browserSupportsWebAuthn()) {
+    if (webAuthnSupported || autoSkipStarted.current) {
+      return;
+    }
+    // Effects may run again when handler identities change; skip only once.
+    // eslint-disable-next-line @silverhand/fp/no-mutation
+    autoSkipStarted.current = true;
+
+    (async () => {
+      const [error, result] = await asyncSkipPasskeyBinding(true);
+
+      if (error) {
+        await handleError(error, onSubmitErrorHandlers);
+        return;
+      }
+
+      if (result) {
+        await redirectTo(result.redirectTo);
+      }
+    })();
+  }, [webAuthnSupported, asyncSkipPasskeyBinding, handleError, onSubmitErrorHandlers, redirectTo]);
+
+  useEffect(() => {
+    if (!webAuthnSupported) {
       return;
     }
 
@@ -61,7 +88,7 @@ const PasskeySetup = () => {
         setRegistrationResult(result);
       }
     })();
-  }, [asyncCreateRegistrationOptions, handleError]);
+  }, [webAuthnSupported, asyncCreateRegistrationOptions, handleError]);
 
   const onCreatePasskey = useCallback(async () => {
     if (!registrationResult) {
@@ -90,8 +117,8 @@ const PasskeySetup = () => {
     }
   }, [asyncSkipPasskeyBinding, handleError, onSubmitErrorHandlers, redirectTo]);
 
-  if (!browserSupportsWebAuthn()) {
-    return <ErrorPage title="mfa.webauthn_not_supported" />;
+  if (!webAuthnSupported) {
+    return <LoadingLayer />;
   }
 
   return (

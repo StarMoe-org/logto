@@ -55,6 +55,11 @@ export type MfaData = {
    */
   additionalBindingSuggestionSkipped?: boolean;
   passkeySkipped?: boolean;
+  /**
+   * StarMoe: the passkey binding was skipped only for this interaction (the browser cannot create
+   * passkeys), so the skip is not persisted to the user config.
+   */
+  passkeySkipTemporary?: boolean;
   totp?: BindTotp;
   webAuthn?: BindWebAuthn[];
   backupCode?: BindBackupCode;
@@ -74,6 +79,7 @@ export const mfaDataGuard = z.object({
   mfaSkipped: z.boolean().optional(),
   additionalBindingSuggestionSkipped: z.boolean().optional(),
   passkeySkipped: z.boolean().optional(),
+  passkeySkipTemporary: z.boolean().optional(),
   totp: bindTotpGuard.optional(),
   webAuthn: z.array(bindWebAuthnGuard).optional(),
   backupCode: bindBackupCodeGuard.optional(),
@@ -139,6 +145,7 @@ export class Mfa {
   #mfaSkipped?: boolean;
   #additionalBindingSuggestionSkipped?: boolean;
   #passkeySkipped?: boolean;
+  #passkeySkipTemporary?: boolean;
   #totp?: BindTotp;
   #webAuthn?: BindWebAuthn[];
   #backupCode?: BindBackupCode;
@@ -155,6 +162,7 @@ export class Mfa {
     this.#mfaSkipped = data.mfaSkipped;
     this.#additionalBindingSuggestionSkipped = data.additionalBindingSuggestionSkipped;
     this.#passkeySkipped = data.passkeySkipped;
+    this.#passkeySkipTemporary = data.passkeySkipTemporary;
     this.#totp = data.totp;
     this.#webAuthn = data.webAuthn;
     this.#backupCode = data.backupCode;
@@ -195,6 +203,7 @@ export class Mfa {
     this.#mfaSkipped = undefined;
     this.#additionalBindingSuggestionSkipped = undefined;
     this.#passkeySkipped = undefined;
+    this.#passkeySkipTemporary = undefined;
     this.#totp = undefined;
     this.#webAuthn = undefined;
     this.#backupCode = undefined;
@@ -238,7 +247,8 @@ export class Mfa {
       mfaEnabled: this.mfaEnabled,
       mfaSkipped: this.mfaSkipped,
       additionalBindingSuggestionSkipped: this.additionalBindingSuggestionSkipped,
-      passkeySkipped: this.#passkeySkipped,
+      // A temporary skip (StarMoe) only applies to this interaction and is not written to the user.
+      passkeySkipped: this.#passkeySkipTemporary ? undefined : this.#passkeySkipped,
       mfaVerifications: [...verificationSet],
     };
   }
@@ -264,9 +274,13 @@ export class Mfa {
 
   /**
    * Mark the passkey binding as skipped and persist to user config.
+   *
+   * StarMoe: with `temporary`, the skip only applies to the current interaction. The experience app
+   * uses it when the browser does not support WebAuthn, so the user is asked again in a browser that does.
    */
-  skipPasskey() {
+  skipPasskey(temporary = false) {
     this.#passkeySkipped = true;
+    this.#passkeySkipTemporary = temporary;
   }
 
   /**
@@ -434,6 +448,7 @@ export class Mfa {
       mfaSkipped: this.mfaSkipped,
       additionalBindingSuggestionSkipped: this.additionalBindingSuggestionSkipped,
       passkeySkipped: this.#passkeySkipped,
+      passkeySkipTemporary: this.#passkeySkipTemporary,
       totp: this.#totp,
       webAuthn: this.#webAuthn,
       backupCode: this.#backupCode,
