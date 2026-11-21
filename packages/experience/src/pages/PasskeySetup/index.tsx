@@ -1,5 +1,4 @@
 import { InteractionEvent, type WebAuthnRegistrationOptions } from '@logto/schemas';
-import { browserSupportsWebAuthn } from '@simplewebauthn/browser';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { validate } from 'superstruct';
@@ -15,6 +14,7 @@ import useSubmitInteractionErrorHandler from '@/hooks/use-submit-interaction-err
 import Button from '@/shared/components/Button';
 import LoadingLayer from '@/shared/components/LoadingLayer';
 import { continueFlowStateGuard } from '@/types/guard';
+import { canCreatePasskey } from '@/utils/passkey-support';
 
 import styles from './index.module.scss';
 
@@ -44,9 +44,9 @@ const PasskeySetup = () => {
 
   const asyncSkipPasskeyBinding = useApi(skipPasskeyBinding);
 
-  // StarMoe: browsers without WebAuthn (e.g. in-app browsers such as QQ's) cannot create a passkey.
-  // Instead of a dead-end error page, skip the suggestion for this sign-in only and carry on.
-  const webAuthnSupported = browserSupportsWebAuthn();
+  // StarMoe: browsers that cannot create a passkey (no WebAuthn, or in-app browsers such as QQ's)
+  // never see this page: skip the suggestion for this sign-in only and carry on.
+  const webAuthnSupported = canCreatePasskey();
   const autoSkipStarted = useRef(false);
 
   useEffect(() => {

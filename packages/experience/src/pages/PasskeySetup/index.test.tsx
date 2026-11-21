@@ -36,11 +36,12 @@ jest.mock('@/hooks/use-global-redirect-to', () => ({
   default: () => mockRedirectTo,
 }));
 
-// StarMoe: browsers without WebAuthn (e.g. QQ's in-app browser) skip the passkey suggestion for this
-// sign-in instead of showing a dead-end error page.
+// StarMoe: browsers that cannot create a passkey (no WebAuthn, or in-app browsers such as QQ's) skip
+// the passkey suggestion for this sign-in instead of showing it.
 describe('PasskeySetup', () => {
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   it('skips the suggestion for this sign-in only when WebAuthn is not supported', async () => {
@@ -57,6 +58,25 @@ describe('PasskeySetup', () => {
     expect(createSignInPasskeyRegistrationOptions).not.toHaveBeenCalled();
     expect(queryByText('passkey_sign_in.setup_page.title')).toBeNull();
     expect(queryByText('mfa.webauthn_not_supported')).toBeNull();
+  });
+
+  it('skips the suggestion in in-app browsers that expose but block WebAuthn', async () => {
+    mockBrowserSupportsWebAuthn.mockReturnValue(true);
+    jest
+      .spyOn(window.navigator, 'userAgent', 'get')
+      .mockReturnValue(
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 QQ/9.3.86.617 Core/WKWebView'
+      );
+    const { queryByText } = renderWithPageContext(<PasskeySetup />, {
+      initialEntries: ['/create-passkey'],
+    });
+
+    await waitFor(() => {
+      expect(mockRedirectTo).toHaveBeenCalledWith('/callback');
+    });
+    expect(skipPasskeyBinding).toHaveBeenCalledWith(true);
+    expect(createSignInPasskeyRegistrationOptions).not.toHaveBeenCalled();
+    expect(queryByText('passkey_sign_in.setup_page.title')).toBeNull();
   });
 
   it('shows the suggestion when WebAuthn is supported', async () => {
