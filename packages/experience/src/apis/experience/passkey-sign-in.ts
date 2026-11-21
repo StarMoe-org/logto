@@ -48,9 +48,15 @@ export const verifySignInPasskey = async (payload: WebAuthnVerificationPayload) 
  *
  * Note: When calling this API on sign-up, the skip is temporary for the current interaction.
  * On sign-in, the skip flag will be persisted to user config.
+ *
+ * StarMoe: with `temporary`, the skip is never persisted (used when the browser does not support
+ * WebAuthn, so the user is asked again in a browser that does).
  */
-export const skipPasskeyBinding = async () => {
-  await api.post(`${experienceApiRoutes.profile}/mfa/passkey-skipped`);
+export const skipPasskeyBinding = async (temporary = false) => {
+  await api.post(
+    `${experienceApiRoutes.profile}/mfa/passkey-skipped`,
+    temporary ? { json: { temporary: true } } : undefined
+  );
   return submitInteraction();
 };
 

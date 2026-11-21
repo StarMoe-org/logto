@@ -17,7 +17,7 @@ import type Queries from '#src/tenants/Queries.js';
 import { type InteractionContext } from '../types.js';
 
 import { type SignInExperienceValidator } from './libraries/sign-in-experience-validator.js';
-import { Mfa } from './mfa.js';
+import { Mfa, mfaDataGuard } from './mfa.js';
 
 const { jest } = import.meta;
 
@@ -613,6 +613,43 @@ describe('Mfa.assertPasskeySignInFulfilled', () => {
       code: 'user.passkey_preferred',
       status: 422,
     });
+  });
+
+  it('does not prompt again in the same interaction after a temporary skip', async () => {
+    const mfa = createPasskeyMfa(true);
+    mfa.skipPasskey(true);
+    await expect(mfa.assertPasskeySignInFulfilled()).resolves.toBeUndefined();
+  });
+});
+
+// StarMoe: a temporary passkey skip (browser without WebAuthn) must not be persisted to the user.
+describe('Mfa.skipPasskey', () => {
+  it('persists a regular skip', () => {
+    const { mfa } = createMfa();
+    mfa.skipPasskey();
+    expect(mfa.toUserMfaVerifications().passkeySkipped).toBe(true);
+  });
+
+  it('does not persist a temporary skip', () => {
+    const { mfa } = createMfa();
+    mfa.skipPasskey(true);
+    expect(mfa.toUserMfaVerifications().passkeySkipped).toBeUndefined();
+  });
+
+  it('keeps the temporary flag in the saved interaction data', () => {
+    const { mfa } = createMfa();
+    mfa.skipPasskey(true);
+    expect(mfaDataGuard.parse(mfa.data)).toMatchObject({
+      passkeySkipped: true,
+      passkeySkipTemporary: true,
+    });
+  });
+
+  it('clears the temporary flag on clean-up', () => {
+    const { mfa } = createMfa();
+    mfa.skipPasskey(true);
+    mfa.cleanUp();
+    expect(mfa.data.passkeySkipTemporary).toBeUndefined();
   });
 });
 /* eslint-enable max-lines */

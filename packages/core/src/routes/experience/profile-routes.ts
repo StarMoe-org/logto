@@ -361,12 +361,16 @@ export default function interactionProfileRoutes<T extends ExperienceInteraction
 
   router.post(
     `${experienceRoutes.mfa}/passkey-skipped`,
-    koaGuard({ status: [204, 400, 404] }),
+    koaGuard({
+      // StarMoe: `temporary` skips only for this interaction (the browser cannot create passkeys).
+      body: z.object({ temporary: z.boolean().optional() }),
+      status: [204, 400, 404],
+    }),
     verifiedInteractionGuard(),
     async (ctx, next) => {
       const { experienceInteraction } = ctx;
 
-      experienceInteraction.mfa.skipPasskey();
+      experienceInteraction.mfa.skipPasskey(ctx.guard.body.temporary);
       await experienceInteraction.save();
 
       ctx.status = 204;

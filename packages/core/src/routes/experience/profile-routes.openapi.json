@@ -265,6 +265,19 @@
         "operationId": "SkipPasskeyBinding",
         "summary": "Skip passkey binding",
         "description": "Skip passkey binding flow. The users can temporarily skip the passkey binding flow by calling this API during sign-up. On sign-in, the skip flag will be persisted to user config.",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "temporary": {
+                    "description": "StarMoe: skip the passkey binding for the current interaction only, without persisting it to the user config. Used when the browser does not support WebAuthn."
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "204": {
             "description": "The passkey binding flow has been permanently skipped."
