@@ -47,6 +47,7 @@ import secretsRoutes from './secret.js';
 import sentinelActivitiesRoutes from './sentinel-activities.js';
 import signInExperiencesRoutes from './sign-in-experience/index.js';
 import ssoConnectors from './sso-connector/index.js';
+import { createStarmoeRouter } from './starmoe/avatar.js';
 import statusRoutes from './status.js';
 import subjectTokenRoutes from './subject-token.js';
 import swaggerRoutes from './swagger/index.js';
@@ -130,7 +131,18 @@ const createRouters = (tenant: TenantContext) => {
   // The swagger.json should contain all API routers.
   swaggerRoutes(anonymousRouter, [managementRouter, anonymousRouter, experienceRouter, userRouter]);
 
-  return [experienceRouter, interactionRouter, managementRouter, anonymousRouter, userRouter];
+  // StarMoe patch: the avatar-only API for a trusted service (see ./starmoe/avatar.ts). Not part
+  // of the OpenAPI document; absent unless configured.
+  const starmoeRouter = createStarmoeRouter(tenant);
+
+  return [
+    experienceRouter,
+    interactionRouter,
+    managementRouter,
+    anonymousRouter,
+    userRouter,
+    ...(starmoeRouter ? [starmoeRouter] : []),
+  ];
 };
 
 export default function initApis(tenant: TenantContext): Koa {
